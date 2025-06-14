@@ -164,13 +164,14 @@ interface Step {
 }
 
 interface Plan {
-  locale: string; // e.g. "en-US" or "zh-CN", based on the user's language or specific request
+  locale: string; // e.g. "en-US" or "zh-TW", based on the user's language or specific request
   has_enough_context: boolean;
   thought: string;
   title: string;
   steps: Step[]; // Research & Processing steps to get more context
 }
 ```
+[IMPORTANT] All keys in the JSON response are mandatory and must be included with valid values - do not omit any fields.
 
 # Notes
 
