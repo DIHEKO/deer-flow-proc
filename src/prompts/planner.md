@@ -171,7 +171,7 @@ interface Plan {
   steps: Step[]; // Research & Processing steps to get more context
 }
 ```
-[IMPORTANT] All keys in the JSON response are mandatory and must be included with valid values - do not omit any fields.
+[IMPORTANT] You must respond with JSON that matches this exact structure. Do not add, remove, or modify any fields. Do not include any explanations, comments, or text outside the JSON. Return only valid JSON that conforms precisely to the schema provided above.
 
 # Notes
 
