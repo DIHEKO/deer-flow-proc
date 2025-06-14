@@ -26,8 +26,11 @@ LoggedArxivSearch = create_logged_tool(ArxivQueryRun)
 
 
 # Get the selected search tool
-def get_web_search_tool(max_search_results: int):
-    if SELECTED_SEARCH_ENGINE == SearchEngine.TAVILY.value:
+def get_web_search_tool(max_search_results: int, engine: str = None):
+
+    engine = engine if engine else SELECTED_SEARCH_ENGINE
+
+    if engine == SearchEngine.TAVILY.value:
         return LoggedTavilySearch(
             name="web_search",
             max_results=max_search_results,
@@ -35,9 +38,12 @@ def get_web_search_tool(max_search_results: int):
             include_images=True,
             include_image_descriptions=True,
         )
-    elif SELECTED_SEARCH_ENGINE == SearchEngine.DUCKDUCKGO.value:
-        return LoggedDuckDuckGoSearch(name="web_search", max_results=max_search_results)
-    elif SELECTED_SEARCH_ENGINE == SearchEngine.BRAVE_SEARCH.value:
+    elif engine == SearchEngine.DUCKDUCKGO.value:
+        return LoggedDuckDuckGoSearch(
+            name="web_search",
+            max_results=max_search_results
+        )
+    elif engine == SearchEngine.BRAVE_SEARCH.value:
         return LoggedBraveSearch(
             name="web_search",
             search_wrapper=BraveSearchWrapper(
@@ -45,7 +51,7 @@ def get_web_search_tool(max_search_results: int):
                 search_kwargs={"count": max_search_results},
             ),
         )
-    elif SELECTED_SEARCH_ENGINE == SearchEngine.ARXIV.value:
+    elif engine == SearchEngine.ARXIV.value:
         return LoggedArxivSearch(
             name="web_search",
             api_wrapper=ArxivAPIWrapper(
