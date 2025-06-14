@@ -107,6 +107,30 @@ async def _astream_workflow_generator(
         if messages:
             resume_msg += f" {messages[-1]['content']}"
         input_ = Command(resume=resume_msg)
+    
+    default_recursion_limit = 25
+    try:
+        env_value_str = os.getenv("FULL_RECURSION_LIMIT", str(default_recursion_limit))
+        parsed_limit = int(env_value_str)
+
+        if parsed_limit > 0:
+            recursion_limit = parsed_limit
+            logger.info(f"Full recursion limit set to: {recursion_limit}")
+        else:
+            logger.warning(
+                f"FULL_RECURSION_LIMIT value '{env_value_str}' (parsed as {parsed_limit}) is not positive. "
+                f"Using default value {default_recursion_limit}."
+            )
+            recursion_limit = default_recursion_limit
+    except ValueError:
+        raw_env_value = os.getenv("FULL_RECURSION_LIMIT")
+        logger.warning(
+            f"Invalid AGENT_RECURSION_LIMIT value: '{raw_env_value}'. "
+            f"Using default value {default_recursion_limit}."
+        )
+        recursion_limit = default_recursion_limit
+
+
     async for agent, _, event_data in graph.astream(
         input_,
         config={
@@ -116,6 +140,7 @@ async def _astream_workflow_generator(
             "max_step_num": max_step_num,
             "max_search_results": max_search_results,
             "mcp_settings": mcp_settings,
+            "recursion_limit": recursion_limit
         },
         stream_mode=["messages", "updates"],
         subgraphs=True,
