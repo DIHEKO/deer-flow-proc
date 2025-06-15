@@ -72,6 +72,10 @@ Different types of steps have different web search requirements:
    - Mathematical calculations and analysis
    - Statistical computations and data processing
 
+3. **Traditional Search Steps** (`need_search: true`): (Rarely used unless necessary)
+   - The situation requires a simple or quick search.
+   - Only simple information is required, or a single piece of information is missing.
+
 ## Exclusions
 
 - **No Direct Calculations in Research Steps**:
@@ -146,6 +150,7 @@ When planning information gathering, consider these key aspects and ensure COMPR
   - For each step, carefully assess if web search is needed:
     - Research and external data gathering: Set `need_search: true`
     - Internal data processing: Set `need_search: false`
+    - Simple and quick search:  Set `need_search: true`
 - Specify the exact data to be collected in step's `description`. Include a `note` if necessary.
 - Prioritize depth and volume of relevant information - limited information is not acceptable.
 - Use the same language as the user to generate the plan.
@@ -160,7 +165,7 @@ interface Step {
   need_search: boolean; // Must be explicitly set for each step
   title: string;
   description: string; // Specify exactly what data to collect. If the user input contains a link, please retain the full Markdown format when necessary.
-  step_type: "research" | "processing"; // Indicates the nature of the step
+  step_type: "research" | "processing" | "search"; // Indicates the nature of the step
 }
 
 interface Plan {
@@ -168,10 +173,17 @@ interface Plan {
   has_enough_context: boolean;
   thought: string;
   title: string;
-  steps: Step[]; // Research & Processing steps to get more context
+  steps: Step[]; // Research & Processing & Traditional-Search steps to get more context
 }
 ```
 [IMPORTANT] You must respond with JSON that matches this exact structure. Do not add, remove, or modify any fields. Do not include any explanations, comments, or text outside the JSON. Return only valid JSON that conforms precisely to the schema provided above.
+[WARNING] Before adding any new key-value pairs to the JSON, carefully check if the key already exists in the current JSON structure. If the key exists:
+1. If the existing value is identical to what you want to add, skip adding it to avoid duplication
+2. If the existing value is different but related, extend or merge the values appropriately (e.g., combine arrays, merge objects, or update with more comprehensive information)
+3. If the existing value should be completely replaced, explicitly note that you are updating the existing key
+
+Always preserve existing data unless explicitly instructed to overwrite it.
+
 
 # Notes
 
@@ -184,5 +196,6 @@ interface Plan {
 - Carefully assess each step's web search or retrieve from URL requirement based on its nature:
   - Research steps (`need_search: true`) for gathering information
   - Processing steps (`need_search: false`) for calculations and data processing
+  - Traditional-Search steps (`need_search: true`) for use when you need to quickly and simply search for information.
 - Default to gathering more information unless the strictest sufficient context criteria are met
 - Always use the language specified by the locale = **{{ locale }}**.
