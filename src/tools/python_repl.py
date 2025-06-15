@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 @log_io
 def python_repl_tool(
     code: Annotated[
-        str, "The python code to execute to do further analysis or calculation."
+        str, "The python code to execute to do further analysis or calculation. Do not include any comments."
     ],
 ):
     """Use this to execute python code and do data analysis or calculation. If you want to see the output of a value,
