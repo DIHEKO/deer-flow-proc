@@ -11,6 +11,7 @@ from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from langgraph.types import Command, interrupt
 from langchain_mcp_adapters.client import MultiServerMCPClient
+from langchain_core.exceptions import OutputParserException
 
 from src.agents import create_agent
 from src.tools.search import LoggedTavilySearch
@@ -79,7 +80,7 @@ def background_investigation_node(
     )
 
 
-def planner_node(
+async def planner_node(
     state: State, config: RunnableConfig
 ) -> Command[Literal["human_feedback", "reporter"]]:
     """Planner node that generate the full plan."""
@@ -111,19 +112,28 @@ def planner_node(
         )
     else:
         llm = get_llm_by_type(AGENT_LLM_MAP["planner"])
-
+    
+    goto = "traditional_reporter" if state.get("traditional_search") else "reporter" 
     # if the plan iterations is greater than the max plan iterations, return the reporter node
     if plan_iterations >= configurable.max_plan_iterations:
-        return Command(goto="reporter")
+        logger.info(f"Plan iterations is out of limit: {plan_iterations} / {configurable.max_plan_iterations}")
+        logger.info(f"Stop to next node {goto}")
+        return Command(goto=goto)
 
     full_response = ""
-    if AGENT_LLM_MAP["planner"] == "basic":
-        response = llm.invoke(messages)
-        full_response = response.model_dump_json(indent=4, exclude_none=True)
-    else:
-        response = llm.stream(messages)
-        for chunk in response:
-            full_response += chunk.content
+    try:
+        if AGENT_LLM_MAP["planner"] == "basic":
+            response = llm.invoke(messages)
+            full_response = response.model_dump_json(indent=4, exclude_none=True)
+        else:
+            response = llm.stream(messages)
+            for chunk in response:
+                full_response += chunk.content
+    except OutputParserException:
+        logger.warning(f"Failed to parse Plan from completion, resource")
+        logger.warning(f"Transport to node {goto}")
+        return Command(goto=goto)
+
     logger.debug(f"Current state messages: {state['messages']}")
     logger.info(f"Planner response: {full_response}")
 
@@ -132,7 +142,7 @@ def planner_node(
     except json.JSONDecodeError:
         logger.warning("Planner response is not a valid JSON")
         if plan_iterations > 0:
-            return Command(goto="reporter")
+            return Command(goto=goto)
         else:
             return Command(goto="__end__")
     if curr_plan.get("has_enough_context"):
@@ -143,7 +153,7 @@ def planner_node(
                 "messages": [AIMessage(content=full_response, name="planner")],
                 "current_plan": new_plan,
             },
-            goto="reporter",
+            goto=goto,
         )
     return Command(
         update={
@@ -160,7 +170,7 @@ def human_feedback_node(
     current_plan = state.get("current_plan", "")
     # check if the plan is auto accepted
     auto_accepted_plan = state.get("auto_accepted_plan", False)
-    if not auto_accepted_plan:
+    if not auto_accepted_plan and not state.get("traditional_search"):
         feedback = interrupt("Please Review the Plan.")
 
         # if the feedback is not accepted, return the planner node
@@ -249,6 +259,43 @@ def coordinator_node(
     )
 
 
+def traditional_reporter_node(
+    state: State
+):
+    logger.info("Reporter write the final report (Traditional)")
+    
+    report_prompt = HumanMessage(
+        content = "IMPORTANT: Structure your response according to the Traditional Searcher format. Remember to include: 1. **Quick Answer** - Direct, immediate response to the query (1-2 sentences) 2. **Key Information** - A bulleted list of the most important details (3-5 points maximum) 3. **Additional Context** (Optional) - Brief supplementary information when available 4. **Sources with Credibility Assessment** - Comprehensive list of all sources with reliability evaluation. For source assessment, you MUST evaluate each source using these criteria: **Authority Level**: Government/Official, Academic/Research, News Media, Commercial, Other; **Reliability Score**: High/Medium/Low based on source reputation and type; **Publication Date**: When available, especially for time-sensitive information; **Source Type**: Official website, news article, research paper, press release, etc. Format each source as: - **[Source Title](URL)** - Authority: [Government/Academic/News Media/Commercial/Other] - Reliability: [High/Medium/Low] - Type: [Website/Article/Report/Press Release/etc.] - Date: [Publication date if available]. CREDIBILITY GUIDELINES: **High Reliability**: Government sites (.gov), academic institutions (.edu), established research organizations, major news outlets with editorial standards; **Medium Reliability**: Industry publications, professional organizations, established commercial sites, regional news sources; **Low Reliability**: Blogs, forums, social media posts, commercial sites with potential bias, uncredited sources. IMPORTANT INSTRUCTIONS: DO NOT include inline citations in the text - keep the main content clean and readable; Order sources by reliability (highest first); Include confidence indicators in Key Information when appropriate: '(High confidence - multiple reliable sources)' or '(Medium confidence - single source)'; Handle conflicting information by noting source reliability differences; Maximum 150 words for main content (excluding source assessments); Focus on speed and precision while maintaining source transparency; If sources have potential bias or limitations, acknowledge this clearly; Cross-reference information when multiple sources are available. Based on the search context provided, generate a quick but credible response that helps users understand both the answer and the reliability of the information sources.",
+        name = "system"
+    )
+    current_plan = state.get("current_plan")
+    input_ = {
+        "messages": [
+            HumanMessage(
+                f"# Research Requirements\n\n## Task\n\n{current_plan.title}\n\n## Description\n\n{current_plan.thought}"
+            )
+        ],
+        "locale": state.get("locale", "en-US"),
+    }
+    invoke_messages = apply_prompt_template("reporter", input_)
+    observations = state.get("observations", [])
+    invoke_messages.append(report_prompt)
+
+    for observation in observations:
+        invoke_messages.append(
+            HumanMessage(
+                content=f"Below are some observations for the research task:\n\n{observation}",
+                name="observation",
+            )
+        )
+    logger.debug(f"Current invoke messages: {invoke_messages}")
+    response = get_llm_by_type(AGENT_LLM_MAP["reporter"]).invoke(invoke_messages)
+    response_content = response.content
+    logger.info(f"reporter response: {response_content}")
+
+    return {"final_report": response_content}
+
+
 def reporter_node(state: State):
     """Reporter node that write a final report."""
     logger.info("Reporter write final report")
@@ -288,7 +335,7 @@ def reporter_node(state: State):
 
 
 def research_team_node(
-    state: State,
+    state: State
 ) -> Command[Literal["planner", "researcher", "coder"]]:
     """Research team node that collaborates on tasks."""
     logger.info("Research team is collaborating on tasks.")
@@ -297,13 +344,19 @@ def research_team_node(
         return Command(goto="planner")
     if all(step.execution_res for step in current_plan.steps):
         return Command(goto="planner")
+    i = 0
     for step in current_plan.steps:
+        i = i + 1
         if not step.execution_res:
             break
+    logger.info(f"Preparing plan {i}/{len(current_plan.steps)}")
+    if step.step_type and step.step_type == StepType.TRADITIONAL or state.get("traditional_search"):
+        return Command(goto="traditional_searcher")
     if step.step_type and step.step_type == StepType.RESEARCH:
         return Command(goto="researcher")
     if step.step_type and step.step_type == StepType.PROCESSING:
         return Command(goto="coder")
+    
     return Command(goto="planner")
 
 
@@ -444,9 +497,10 @@ async def _setup_and_execute_agent_step(
     configurable = Configuration.from_runnable_config(config)
     mcp_servers = {}
     enabled_tools = {}
-
+    
     # Extract MCP server configuration for this agent type
     if configurable.mcp_settings:
+        logger.info(f"Configura mcp_settings loaded: {configurable.mcp_settings.__dict__}")
         for server_name, server_config in configurable.mcp_settings["servers"].items():
             if (
                 server_config["enabled_tools"]
@@ -508,3 +562,21 @@ async def coder_node(
         "coder",
         [python_repl_tool],
     )
+
+async def traditional_searcher_node(
+        state: State, config: RunnableConfig
+) -> Command[Literal["research_team"]]:
+    logger.info("Starting traditional search")
+    configurable = Configuration.from_runnable_config(config)
+    tools = [get_web_search_tool(configurable.max_search_results,"tavily"), crawl_tool]
+    retriever_tool = get_retriever_tool(state.get("resources", []))
+    if retriever_tool:
+        tools.insert(0, retriever_tool)
+    logger.info(f"Traditional search tool: {tools}")
+    return await _setup_and_execute_agent_step(
+        state,
+        config,
+        "traditional_searcher",
+        tools
+    )
+

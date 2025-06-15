@@ -58,6 +58,9 @@ class ChatRequest(BaseModel):
     enable_background_investigation: Optional[bool] = Field(
         True, description="Whether to get background investigation before plan"
     )
+    traditional_search: Optional[bool] = Field(
+        False, description="Enable only traditional search"
+    )
 
 
 class TTSRequest(BaseModel):
