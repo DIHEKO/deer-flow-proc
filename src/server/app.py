@@ -75,6 +75,7 @@ async def chat_stream(request: ChatRequest):
             request.interrupt_feedback,
             request.mcp_settings,
             request.enable_background_investigation,
+            request.traditional_search
         ),
         media_type="text/event-stream",
     )
@@ -91,6 +92,7 @@ async def _astream_workflow_generator(
     interrupt_feedback: str,
     mcp_settings: dict,
     enable_background_investigation,
+    traditional_search: bool
 ):
     input_ = {
         "messages": messages,
@@ -100,6 +102,7 @@ async def _astream_workflow_generator(
         "observations": [],
         "auto_accepted_plan": auto_accepted_plan,
         "enable_background_investigation": enable_background_investigation,
+        "traditional_search": traditional_search
     }
     if not auto_accepted_plan and interrupt_feedback:
         resume_msg = f"[{interrupt_feedback}]"
@@ -130,6 +133,17 @@ async def _astream_workflow_generator(
         )
         recursion_limit = default_recursion_limit
 
+    yield _make_event("start_ression", {
+        "query": messages,
+        "thread_id": thread_id,
+        "resources": resources,
+        "max_plan_iterations": max_plan_iterations,
+        "max_step_num": max_step_num,
+        "max_search_results": max_search_results,
+        "mcp_settings": mcp_settings,
+        "recursion_limit": recursion_limit,
+        "traditional_search": traditional_search
+    })
 
     async for agent, _, event_data in graph.astream(
         input_,
@@ -140,10 +154,11 @@ async def _astream_workflow_generator(
             "max_step_num": max_step_num,
             "max_search_results": max_search_results,
             "mcp_settings": mcp_settings,
-            "recursion_limit": recursion_limit
+            "recursion_limit": recursion_limit,
+            "traditional_search": traditional_search
         },
         stream_mode=["messages", "updates"],
-        subgraphs=True,
+        subgraphs=True
     ):
         if isinstance(event_data, dict):
             if "__interrupt__" in event_data:
