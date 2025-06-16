@@ -176,14 +176,7 @@ interface Plan {
   steps: Step[]; // Research & Processing & Traditional-Search steps to get more context
 }
 ```
-[IMPORTANT] You must respond with JSON that matches this exact structure. Do not add, remove, or modify any fields. Do not include any explanations, comments, or text outside the JSON. Return only valid JSON that conforms precisely to the schema provided above.
-[WARNING] Before adding any new key-value pairs to the JSON, carefully check if the key already exists in the current JSON structure. If the key exists:
-1. If the existing value is identical to what you want to add, skip adding it to avoid duplication
-2. If the existing value is different but related, extend or merge the values appropriately (e.g., combine arrays, merge objects, or update with more comprehensive information)
-3. If the existing value should be completely replaced, explicitly note that you are updating the existing key
-
-Always preserve existing data unless explicitly instructed to overwrite it.
-
+[IMPORTANT] You must respond with JSON that matches this exact structure. Do not add, remove, or modify any fields. Do not include any explanations, comments, or text outside the JSON. The execution_res field must be included in each Step object and set to null initially. Return only valid JSON that conforms precisely to the schema provided above.
 
 # Notes
 
