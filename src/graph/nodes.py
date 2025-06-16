@@ -105,13 +105,10 @@ async def planner_node(
             }
         ]
 
-    if AGENT_LLM_MAP["planner"] == "basic":
-        llm = get_llm_by_type(AGENT_LLM_MAP["planner"]).with_structured_output(
-            Plan,
-            method="json_mode",
-        )
-    else:
-        llm = get_llm_by_type(AGENT_LLM_MAP["planner"])
+    llm = get_llm_by_type(AGENT_LLM_MAP["planner"]).with_structured_output(
+        Plan,
+        method="json_mode",
+    )
     
     goto = "traditional_reporter" if state.get("traditional_search") else "reporter" 
     # if the plan iterations is greater than the max plan iterations, return the reporter node
@@ -122,13 +119,9 @@ async def planner_node(
 
     full_response = ""
     try:
-        if AGENT_LLM_MAP["planner"] == "basic":
-            response = llm.invoke(messages)
-            full_response = response.model_dump_json(indent=4, exclude_none=True)
-        else:
-            response = llm.stream(messages)
-            for chunk in response:
-                full_response += chunk.content
+        response = llm.invoke(messages)
+        full_response = response.model_dump_json(indent=4, exclude_none=True)
+        
     except OutputParserException:
         logger.warning(f"Failed to parse Plan from completion, resource")
         logger.warning(f"Transport to node {goto}")
@@ -265,7 +258,7 @@ def traditional_reporter_node(
     logger.info("Reporter write the final report (Traditional)")
     
     report_prompt = HumanMessage(
-        content = "IMPORTANT: Structure your response according to the Traditional Searcher format. Remember to include: 1. **Quick Answer** - Direct, immediate response to the query (1-2 sentences) 2. **Key Information** - A bulleted list of the most important details (3-5 points maximum) 3. **Additional Context** (Optional) - Brief supplementary information when available 4. **Sources with Credibility Assessment** - Comprehensive list of all sources with reliability evaluation. For source assessment, you MUST evaluate each source using these criteria: **Authority Level**: Government/Official, Academic/Research, News Media, Commercial, Other; **Reliability Score**: High/Medium/Low based on source reputation and type; **Publication Date**: When available, especially for time-sensitive information; **Source Type**: Official website, news article, research paper, press release, etc. Format each source as: - **[Source Title](URL)** - Authority: [Government/Academic/News Media/Commercial/Other] - Reliability: [High/Medium/Low] - Type: [Website/Article/Report/Press Release/etc.] - Date: [Publication date if available]. CREDIBILITY GUIDELINES: **High Reliability**: Government sites (.gov), academic institutions (.edu), established research organizations, major news outlets with editorial standards; **Medium Reliability**: Industry publications, professional organizations, established commercial sites, regional news sources; **Low Reliability**: Blogs, forums, social media posts, commercial sites with potential bias, uncredited sources. IMPORTANT INSTRUCTIONS: DO NOT include inline citations in the text - keep the main content clean and readable; Order sources by reliability (highest first); Include confidence indicators in Key Information when appropriate: '(High confidence - multiple reliable sources)' or '(Medium confidence - single source)'; Handle conflicting information by noting source reliability differences; Maximum 150 words for main content (excluding source assessments); Focus on speed and precision while maintaining source transparency; If sources have potential bias or limitations, acknowledge this clearly; Cross-reference information when multiple sources are available. Based on the search context provided, generate a quick but credible response that helps users understand both the answer and the reliability of the information sources.",
+        content = "IMPORTANT: Structure your response with: 1. **Quick Answer** (1-2 sentences), 2. **Key Information** (3-5 bullet points max), 3. **Additional Context** (optional), 4. **Sources** in YAML format within `<source></source>` containers. Source YAML must include: title, url, authority_level (government/academic/news_media/commercial/other), reliability_score (high/medium/low), source_type, publication_date (YYYY-MM-DD), notes. Reliability: High=gov/edu/major news, Medium=industry/professional orgs, Low=blogs/forums/biased sites. Keep main content under 150 words, no inline citations, order sources by reliability, include confidence indicators, handle conflicts by noting source reliability differences, every response MUST have `<source></source>` container with YAML data.",
         name = "system"
     )
     current_plan = state.get("current_plan")
@@ -277,7 +270,7 @@ def traditional_reporter_node(
         ],
         "locale": state.get("locale", "en-US"),
     }
-    invoke_messages = apply_prompt_template("reporter", input_)
+    invoke_messages = apply_prompt_template("traditional_reporter", input_)
     observations = state.get("observations", [])
     invoke_messages.append(report_prompt)
 
@@ -289,7 +282,7 @@ def traditional_reporter_node(
             )
         )
     logger.debug(f"Current invoke messages: {invoke_messages}")
-    response = get_llm_by_type(AGENT_LLM_MAP["reporter"]).invoke(invoke_messages)
+    response = get_llm_by_type(AGENT_LLM_MAP["traditional_reporter"]).invoke(invoke_messages)
     response_content = response.content
     logger.info(f"reporter response: {response_content}")
 
