@@ -13,6 +13,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse
 from langchain_core.messages import AIMessageChunk, ToolMessage, BaseMessage
 from langgraph.types import Command
+from boto3 import Session
 
 from src.config.tools import SELECTED_RAG_PROVIDER
 from src.graph.builder import build_graph_with_memory
@@ -37,6 +38,8 @@ from src.server.rag_request import (
     RAGResourcesResponse,
 )
 from src.tools import VolcengineTTS
+from src.server.jwt_verifier import JWTMiddleware
+from src.server.secret_manager import (static_secret_manager, diheko_aws_secret_Manager)
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +57,28 @@ app.add_middleware(
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
 )
+
+env_secret_manager = os.getenv("JWT_SECRET_MANAGER", None)
+if env_secret_manager == "STATIC":
+    env_secret = os.getenv("JWT_SECRET")
+    if not env_secret:
+        raise ValueError("STATIC secretmanager but no secret provided >:(")
+    secret_manager = static_secret_manager(env_secret)
+    app.add_middleware(jwt_middleware, secret_manager=secret_manager)
+elif env_secret_manager == "DIHEKO_AWS":
+    env_aws_secrets_manager_region = os.getenv("AWS_SECRETS_MANAGER_REGION")
+    env_aws_secrets_manager_secret_id = os.getenv("AWS_SECRETS_MANAGER_SECRET_ID")
+    env_aws_secrets_manager_access_key_id = os.getenv("AWS_SECRETS_MANAGER_ACCESS_KEY_ID")
+    env_aws_secrets_manager_secret_access_key = os.getenv("AWS_SECRETS_MANAGER_ACCESS_KEY")
+    # env_aws_secrets_manager_secret_version_stage = os.getenv("AWS_SECRETS_MANAGER_SECRET_VERSION_STAGE")
+    session = Session(
+        aws_access_key_id=env_aws_secrets_manager_access_key_id,
+        aws_secret_access_key=env_aws_secrets_manager_secret_access_key,
+        region_name=env_aws_secrets_manager_region)
+    client = session.client(service_name="secretsmanager")
+    secret_manager = diheko_aws_secret_Manager(client=client, secret_id=aws_secrets_manager_secret_id, update_interval_seconds=60*60)
+    app.add_middleware(jwt_middleware, secret_manager=secret_manager)
+
 
 graph = build_graph_with_memory()
 
