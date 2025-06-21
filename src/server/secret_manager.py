@@ -23,7 +23,7 @@ class diheko_aws_secret_Manager:
         self._cache: Dict[str, str] = {}
         self._last_update: Optional[float] = None
         self._update_interval_seconds: float = update_interval_seconds
-        _update()
+        self._update()
         
     def _update():
         if self._last_update != None and time.time() - self._last_update < self._update_interval_seconds:
