@@ -70,11 +70,13 @@ elif env_secret_manager == "DIHEKO_AWS":
     env_aws_secrets_manager_secret_id = os.getenv("AWS_SECRETS_MANAGER_SECRET_ID")
     env_aws_secrets_manager_access_key_id = os.getenv("AWS_SECRETS_MANAGER_ACCESS_KEY_ID")
     env_aws_secrets_manager_secret_access_key = os.getenv("AWS_SECRETS_MANAGER_ACCESS_KEY")
+    env_aws_secrets_manager_account_id = os.getenv("AWS_SECRETS_MANAGER_ACCOUNT_ID")
     # env_aws_secrets_manager_secret_version_stage = os.getenv("AWS_SECRETS_MANAGER_SECRET_VERSION_STAGE")
     session = Session(
         aws_access_key_id=env_aws_secrets_manager_access_key_id,
         aws_secret_access_key=env_aws_secrets_manager_secret_access_key,
-        region_name=env_aws_secrets_manager_region)
+        region_name=env_aws_secrets_manager_region,
+        aws_account_id=env_aws_secrets_manager_account_id)
     client = session.client(service_name="secretsmanager")
     secret_manager = diheko_aws_secret_Manager(client=client, secret_id=env_aws_secrets_manager_secret_id, update_interval_seconds=60*60)
     app.add_middleware(jwt_middleware, secret_manager=secret_manager)
