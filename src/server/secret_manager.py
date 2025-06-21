@@ -7,10 +7,10 @@ class static_secret_manager:
     def __init__(self, secret: str):
         self._secret: str = secret
 
-    def get_verification_secrets() -> [str]:
+    def get_verification_secrets(self) -> [str]:
         return [self._secret]
 
-    def get_signing_secret() -> str:
+    def get_signing_secret(self) -> str:
         return self._secret
 
 class diheko_aws_secret_Manager:
