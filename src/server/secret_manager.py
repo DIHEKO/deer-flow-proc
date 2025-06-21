@@ -28,15 +28,15 @@ class diheko_aws_secret_Manager:
     def _update(self):
         if self._last_update != None and time.time() - self._last_update < self._update_interval_seconds:
             return
-
+        
         result = self._client.get_secret_value(SecretId=self._secret_id)
         self._cache = json.loads(result['SecretString'])
         self._last_update = time.time()
 
-    def get_verification_secrets() -> List[str]:
+    def get_verification_secrets(self) -> List[str]:
         self._update()
         return list(self._cache.values())
 
-    def get_signing_secret() -> str:
+    def get_signing_secret(self) -> str:
         self._update()
         return self.cache['current']
