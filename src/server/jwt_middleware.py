@@ -8,7 +8,7 @@ class jwt_middleware:
     def __init__(self, app, secret_manager: Union[static_secret_manager, diheko_aws_secret_Manager], exempt_paths: list = []):
         self.app = app
         self.exempt_paths = exempt_paths  # paths that don't require auth
-        self._secret_manager : Union[static_secret_manager, diheko_aws_secret_Manager]
+        self._secret_manager : Union[static_secret_manager, diheko_aws_secret_Manager] = secret_manager
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
