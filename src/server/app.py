@@ -38,7 +38,7 @@ from src.server.rag_request import (
     RAGResourcesResponse,
 )
 from src.tools import VolcengineTTS
-from src.server.jwt_verifier import JWTMiddleware
+from src.server.jwt_middleware import jwt_middleware
 from src.server.secret_manager import (static_secret_manager, diheko_aws_secret_Manager)
 
 logger = logging.getLogger(__name__)
