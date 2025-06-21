@@ -76,7 +76,7 @@ elif env_secret_manager == "DIHEKO_AWS":
         aws_secret_access_key=env_aws_secrets_manager_secret_access_key,
         region_name=env_aws_secrets_manager_region)
     client = session.client(service_name="secretsmanager")
-    secret_manager = diheko_aws_secret_Manager(client=client, secret_id=aws_secrets_manager_secret_id, update_interval_seconds=60*60)
+    secret_manager = diheko_aws_secret_Manager(client=client, secret_id=env_aws_secrets_manager_secret_id, update_interval_seconds=60*60)
     app.add_middleware(jwt_middleware, secret_manager=secret_manager)
 
 
