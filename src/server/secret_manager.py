@@ -26,7 +26,7 @@ class diheko_aws_secret_Manager:
         _update()
         
     def _update():
-        if self._last_update != None and time.time - self._last_update < self._update_interval_seconds:
+        if self._last_update != None and time.time() - self._last_update < self._update_interval_seconds:
             return
 
         result = self._client.get_secret_value(SecretId=self._secret_id)
