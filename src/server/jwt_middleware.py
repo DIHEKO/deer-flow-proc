@@ -4,6 +4,9 @@ from jose import JWTError, jwt
 from typing import Union
 from src.server.secret_manager import (static_secret_manager, diheko_aws_secret_Manager)
 
+import logging
+logger = logging.getLogger(__name__)
+
 class jwt_middleware:
     def __init__(self, app, secret_manager: Union[static_secret_manager, diheko_aws_secret_Manager], exempt_paths: list = []):
         self.app = app
@@ -33,7 +36,8 @@ class jwt_middleware:
                 payload = jwt.decode(token, secret, algorithms=["HS256"])
                 await self.app(scope, receive, send)
                 return
-            except JWTError:
+            except JWTError as e:
+                logger.debug(f"jwt verify error: {e}")
                 pass
 
         response = JSONResponse(status_code=401, content={"detail": "Invalid token"})

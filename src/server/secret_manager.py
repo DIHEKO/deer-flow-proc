@@ -3,6 +3,9 @@ import json
 import time
 # from boto3 import Session
 
+import logging
+logger = logging.getLogger(__name__)
+
 class static_secret_manager:
     def __init__(self, secret: str):
         self._secret: str = secret
@@ -28,10 +31,11 @@ class diheko_aws_secret_Manager:
     def _update(self):
         if self._last_update != None and time.time() - self._last_update < self._update_interval_seconds:
             return
-        
+        logger.debug("updating secret...")
         result = self._client.get_secret_value(SecretId=self._secret_id)
         self._cache = json.loads(result['SecretString'])
         self._last_update = time.time()
+        logger.debug("updated secret")
 
     def get_verification_secrets(self) -> List[str]:
         self._update()
