@@ -25,7 +25,7 @@ class diheko_aws_secret_Manager:
         self._update_interval_seconds: float = update_interval_seconds
         self._update()
         
-    def _update():
+    def _update(self):
         if self._last_update != None and time.time() - self._last_update < self._update_interval_seconds:
             return
 
