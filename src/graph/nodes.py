@@ -117,13 +117,18 @@ async def planner_node(
         logger.info(f"Stop to next node {goto}")
         return Command(goto=goto)
 
-    full_response = ""
-    try:
-        response = llm.invoke(messages)
-        full_response = response.model_dump_json(indent=4, exclude_none=True)
-        
-    except OutputParserException:
-        logger.warning(f"Failed to parse Plan from completion, resource")
+    full_response = None 
+    
+    retry_count=3
+    while retry_count > 0:
+        try:
+            response = llm.invoke(messages)
+            full_response = response.model_dump_json(indent=4, exclude_none=True)
+            break    
+        except OutputParserException:
+            logger.warning(f"Failed to parse Plan from completion ( {4 - retry_count} tried )")
+            retry_count = retry_count - 1
+    if not full_response:
         logger.warning(f"Transport to node {goto}")
         return Command(goto=goto)
 
@@ -262,6 +267,8 @@ def traditional_reporter_node(
         name = "system"
     )
     current_plan = state.get("current_plan")
+    if not current_plan:
+        return {"final_report":"Something wrong at this plan, please try again."}
     input_ = {
         "messages": [
             HumanMessage(
@@ -293,6 +300,9 @@ def reporter_node(state: State):
     """Reporter node that write a final report."""
     logger.info("Reporter write final report")
     current_plan = state.get("current_plan")
+
+    if not current_plan:
+        return {"final_report":"Something wrong at this plan, please try again."}
     input_ = {
         "messages": [
             HumanMessage(
