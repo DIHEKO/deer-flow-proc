@@ -118,12 +118,14 @@ async def planner_node(
         return Command(goto=goto)
 
     full_response = None 
+    parser = OutputFixingParser.from_llm(parser=llm, llm=llm)
     
     retry_count=3
     while retry_count > 0:
         try:
             response = llm.invoke(messages)
-            full_response = response.model_dump_json(indent=4, exclude_none=True)
+            # full_response = response.model_dump_json(indent=4, exclude_none=True)
+            full_response = parser.parse(response)
             break    
         except OutputParserException:
             logger.warning(f"Failed to parse Plan from completion ( {4 - retry_count} tried )")
