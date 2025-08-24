@@ -1,6 +1,6 @@
 # Copyright (c) 2025 Bytedance Ltd. and/or its affiliates
 # SPDX-License-Identifier: MIT
-from langchain.output_parsers import OutputFixingParser
+
 import json
 import logging
 import os
@@ -117,28 +117,18 @@ async def planner_node(
         logger.info(f"Stop to next node {goto}")
         return Command(goto=goto)
 
-<<<<<<< HEAD
     full_response = None 
-    parser = OutputFixingParser.from_llm(parser=llm, llm=llm)
     
     retry_count=3
     while retry_count > 0:
         try:
             response = llm.invoke(messages)
-            # full_response = response.model_dump_json(indent=4, exclude_none=True)
-            full_response = parser.parse(response)
+            full_response = response.model_dump_json(indent=4, exclude_none=True)
             break    
         except OutputParserException:
             logger.warning(f"Failed to parse Plan from completion ( {4 - retry_count} tried )")
             retry_count = retry_count - 1
     if not full_response:
-    full_response = ""
-    try:
-        response = llm.invoke(messages)
-        full_response = response.model_dump_json(indent=4, exclude_none=True)
-        
-    except OutputParserException:
-        logger.warning(f"Failed to parse Plan from completion, resource")
         logger.warning(f"Transport to node {goto}")
         return Command(goto=goto)
 
@@ -277,6 +267,8 @@ def traditional_reporter_node(
         name = "system"
     )
     current_plan = state.get("current_plan")
+    if not current_plan:
+        return {"final_report":"Something wrong at this plan, please try again."}
     input_ = {
         "messages": [
             HumanMessage(
@@ -308,6 +300,9 @@ def reporter_node(state: State):
     """Reporter node that write a final report."""
     logger.info("Reporter write final report")
     current_plan = state.get("current_plan")
+
+    if not current_plan:
+        return {"final_report":"Something wrong at this plan, please try again."}
     input_ = {
         "messages": [
             HumanMessage(
