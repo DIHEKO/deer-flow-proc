@@ -22,8 +22,8 @@ from .nodes import (
 def _build_base_graph():
     """Build and return the base state graph with all nodes and edges."""
     builder = StateGraph(State)
-    builder.add_edge(START, "coordinator")
-    builder.add_node("coordinator", coordinator_node)
+    builder.add_edge(START, "planner")
+    # builder.add_node("coordinator", coordinator_node)
     builder.add_node("background_investigator", background_investigation_node)
     builder.add_node("planner", planner_node)
     builder.add_node("reporter", reporter_node)

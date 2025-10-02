@@ -116,14 +116,18 @@ async def planner_node(
         logger.info(f"Plan iterations is out of limit: {plan_iterations} / {configurable.max_plan_iterations}")
         logger.info(f"Stop to next node {goto}")
         return Command(goto=goto)
-
+    
+    from langchain_core.exceptions import OutputParserException
+    from langchain_core.output_parsers import PydanticOutputParser
     full_response = None 
     
     retry_count=3
     while retry_count > 0:
         try:
             response = llm.invoke(messages)
-            full_response = response.model_dump_json(indent=4, exclude_none=True)
+            # full_response = response.model_dump_json(indent=4, exclude_none=True)
+            parser = OutputFixingParser.from_llm(parser=Plan, llm=get_llm_by_type(AGENT_LLM_MAP["planner"]))
+            full_response = parser.parse(response)
             break    
         except OutputParserException:
             logger.warning(f"Failed to parse Plan from completion ( {4 - retry_count} tried )")
@@ -135,21 +139,24 @@ async def planner_node(
     logger.debug(f"Current state messages: {state['messages']}")
     logger.info(f"Planner response: {full_response}")
 
-    try:
-        curr_plan = json.loads(repair_json_output(full_response))
-    except json.JSONDecodeError:
-        logger.warning("Planner response is not a valid JSON")
-        if plan_iterations > 0:
-            return Command(goto=goto)
-        else:
-            return Command(goto="__end__")
-    if curr_plan.get("has_enough_context"):
+    # try:
+    #     curr_plan = json.loads(repair_json_output(full_response))
+    # except json.JSONDecodeError:
+    #     logger.warning("Planner response is not a valid JSON")
+    #     if plan_iterations > 0:
+    #         return Command(goto=goto)
+    #     else:
+    #         return Command(goto="__end__")
+    
+    # if curr_plan.get("has_enough_context"):
+    if full_response.has_enough_context:
         logger.info("Planner response has enough context.")
-        new_plan = Plan.model_validate(curr_plan)
-        return Command(
+        # new_plan = Plan.model_validate(curr_plan)
+        
+        return Commanr(
             update={
-                "messages": [AIMessage(content=full_response, name="planner")],
-                "current_plan": new_plan,
+                "messages": [AIMessage(content=full_respons.json(), name="planner")],
+                "current_plan": full_response,
             },
             goto=goto,
         )
